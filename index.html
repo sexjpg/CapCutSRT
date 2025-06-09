@@ -1,157 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>剪映字幕提取工具</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            gap: 20px;
-        }
-        .left-panel, .right-panel {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            flex: 1;
-        }
-        .upload-area {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-        .upload-area.dragover {
-            background-color: #e1f5fe;
-            border-color: #2196f3;
-        }
-        .button {
-            background-color: #2196f3;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-            transition: background-color 0.3s ease;
-        }
-        .button:hover {
-            background-color: #1976d2;
-        }
-        .button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .preview-area {
-            margin-top: 20px;
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-            border: 1px solid #eee;
-            padding: 15px;
-            border-radius: 4px;
-            background-color: #fafafa;
-            font-family: monospace;
-            white-space: pre-wrap;
-            line-height: 1.6;
-        }
-        .subtitle-block {
-            margin-bottom: 10px;
-            padding: 8px;
-            background-color: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .subtitle-index {
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 2px;
-        }
-        .subtitle-time {
-            color: #2196f3;
-            font-size: 0.9em;
-            margin-bottom: 2px;
-        }
-        .subtitle-text {
-            color: #333;
-            font-size: 1.1em;
-            margin-top: 2px;
-            white-space: pre-line;
-        }
-        .file-path {
-            margin-top: 10px;
-            color: #666;
-            font-size: 0.9em;
-            word-break: break-all;
-        }
-        .export-options {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-        }
-        .export-options h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        .format-options {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .format-option {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .format-option input[type="radio"] {
-            margin: 0;
-        }
-        .format-option label {
-            cursor: pointer;
-        }
-        .file-name-input {
-            margin-top: 10px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .additional-options {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-        }
-        .option-group {
-            margin-bottom: 10px;
-        }
-        .option-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #666;
-        }
-        .option-group input[type="text"],
-        .option-group input[type="number"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <div class="left-panel">
@@ -163,6 +19,9 @@
                 <div class="file-path" id="filePath"></div>
             </div>
             <div class="export-options">
+                <button class="button" id="resetButton" style="margin-top: 10px;">重置</button>
+                <button class="button" id="exportSrt" disabled>导出SRT</button>
+                <button class="button" id="exportTxt" disabled>导出TXT</button>
                 <h3>导出选项</h3>
                 <div class="format-options">
                     <div class="format-option">
@@ -194,11 +53,12 @@
             <h2>字幕预览</h2>
             <div class="preview-area" id="preview"></div>
             <div style="margin-top: 20px; text-align: right;">
-                <button class="button" id="exportSrt" disabled>导出SRT</button>
-                <button class="button" id="exportTxt" disabled>导出TXT</button>
+                <!-- <button class="button" id="exportSrt" disabled>导出SRT</button>
+                <button class="button" id="exportTxt" disabled>导出TXT</button> -->
             </div>
         </div>
     </div>
     <script src="script.js"></script>
 </body>
-</html> 
+
+</html>
