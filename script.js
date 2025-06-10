@@ -1,263 +1,256 @@
-const DRAFT_FILE_NAME = "draft_content.json";
-const DEFAULT_VIDEO_NAME = "subtitles";
-const ERROR_INVALID_FILE = `请选择${DRAFT_FILE_NAME}文件`;
-const PROCESSING_FILE_MESSAGE = "正在处理文件...";
-const NO_SUBTITLE_DATA_MESSAGE = "未找到字幕数据，请确保文件包含字幕信息。";
+        (() => {
+            let $ = document.querySelector.bind(document),
+                $$ = document.querySelectorAll.bind(document),
+                fileInput = $('#fileInput'),
+                filePath = $('#filePath'),
+                srtContent = $('#srtContent'),
+                makeBtn = $('#makeSrtBtn'),
+                saveBtn = $('#save-btn'),
+                saveAsBtn = $('#saveAsFilePicker');
 
-let subtitles = [];
-let videoName = DEFAULT_VIDEO_NAME; // 默认文件名
+            function formatTime(t) {
+                t +=
+                    1e6 * (
+                        60 * (
+                            60 * (parseInt($('#offset_hour').value) || 0) +
+                            (parseInt($('#offset_min').value) || 0)
+                        ) +
+                        (parseInt($('#offset_second').value) || 0) +
+                        (parseInt($('#offset_frame').value) || 0) /
+                        (parseInt($('#offset_frames').value) || 25)
+                    );
 
-// 获取DOM元素
-const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("fileInput");
-const exportSrt = document.getElementById("exportSrt");
-const exportTxt = document.getElementById("exportTxt");
-const preview = document.getElementById("preview");
-const filePath = document.getElementById("filePath");
-const fileNameInput = document.getElementById("fileName");
-const replaceFrom = document.getElementById("replaceFrom");
-const replaceTo = document.getElementById("replaceTo");
-const applyReplace = document.getElementById("applyReplace");
-const timeOffset = document.getElementById("timeOffset");
-const applyTimeOffset = document.getElementById("applyTimeOffset");
-const resetButton = document.getElementById("resetButton"); // 新增重置按钮引用
+                let ms = (t = Math.floor(t / 1e3)) % 1e3,
+                    sec = (t = Math.floor(t / 1e3)) % 60,
+                    min = (t = Math.floor(t / 60)) % 60,
+                    hr = d((t = Math.floor(t / 60)), 2);
 
-// 重置功能
-function resetAll() {
-	subtitles = [];
-	videoName = DEFAULT_VIDEO_NAME;
-	fileInput.value = ""; // 清空文件输入
-	filePath.textContent = ""; // 清空文件路径显示
-	fileNameInput.value = ""; // 清空文件名输入
-	replaceFrom.value = ""; // 清空替换源文本
-	replaceTo.value = ""; // 清空替换目标文本
-	timeOffset.value = ""; // 清空时间偏移
-	preview.innerHTML = ""; // 清空预览
-	exportSrt.disabled = true; // 禁用导出按钮
-	exportTxt.disabled = true;
-}
+                return hr + ":" + d(min, 2) + ":" + d(sec, 2) + "," + d(ms, 3);
+            }
 
-// 重置按钮事件监听
-resetButton.addEventListener("click", resetAll);
+            function d(e, t) {
+                return e.toString().padStart(t, "0");
+            }
 
-// 拖放事件处理
-dropZone.addEventListener("dragover", (e) => {
-	e.preventDefault();
-	dropZone.classList.add("dragover");
-});
+            function saveFile(download = true) {
+                let content = srtContent.value || srtContent.innerText;
+                if (!content.trim()) return alert("尚未生成字幕文本"), false;
 
-dropZone.addEventListener("dragleave", () => {
-	dropZone.classList.remove("dragover");
-});
+                let filename = $('#filename').value || "jianyin_srt";
+                const typeInput = $('input[name="filetype"]:checked');
+                const type = typeInput ? typeInput.value : "text/plain"; // 安全默认值
 
-dropZone.addEventListener("drop", (e) => {
-	e.preventDefault();
-	dropZone.classList.remove("dragover");
-	const file = e.dataTransfer.files[0];
-	if (file && file.name === DRAFT_FILE_NAME) {
-		// 更新文件输入框的值
-		const dataTransfer = new DataTransfer();
-		dataTransfer.items.add(file);
-		fileInput.files = dataTransfer.files;
-		handleFile(file);
-	} else {
-		preview.innerHTML = ERROR_INVALID_FILE;
-	}
-});
+                // 自动添加文件扩展名
+                let extension = "";
+                if (type === "application/x-subrip") {
+                    extension = ".srt";
+                } else if (type === "text/plain") {
+                    extension = ".txt";
+                }
 
-fileInput.addEventListener("change", (e) => {
-	const file = e.target.files[0];
-	if (file && file.name === DRAFT_FILE_NAME) {
-		handleFile(file);
-	} else {
-		preview.innerHTML = ERROR_INVALID_FILE;
-	}
-});
+                // 确保文件名包含正确扩展名
+                if (!filename.toLowerCase().endsWith(extension)) {
+                    filename += extension;
+                }
 
-// 处理文件
-async function handleFile(file) {
-	if (!file) return;
+                const blob = new Blob([content], { type });
 
-	subtitles = [];
-	preview.innerHTML = PROCESSING_FILE_MESSAGE;
-	filePath.textContent = `当前文件: ${file.name}`;
+                if (download) {
+                    if (window.navigator.msSaveOrOpenBlob) {
+                        window.navigator.msSaveOrOpenBlob(blob, filename);
+                    } else {
+                        const a = document.createElement("a");
+                        const url = URL.createObjectURL(blob);
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        }, 0);
+                    }
+                } else if (window.showSaveFilePicker) {
+                    (async () => {
+                        try {
+                            const handle = await window.showSaveFilePicker();
+                            const writable = await handle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+                            alert("另存成功！");
+                        } catch (e) {
+                            console.error(e);
+                            alert("保存失败：" + e.message);
+                        }
+                    })();
+                }
+            }
+            function filterText() {
+                let content = srtContent.value || srtContent.innerText;
+                if (!content) return;
 
-	try {
-		const content = await file.text();
-		console.log("文件大小:", content.length, "字节");
+                $$('[name="filter"]:checked').forEach(el => {
+                    const regex = new RegExp(el.value, "gm");
+                    content = content.replace(regex, "");
+                });
 
-		const data = JSON.parse(content);
-		console.log("JSON解析成功，顶层键:", Object.keys(data));
+                srtContent.value = content;
+            }
 
-		// 获取视频文件名
-		if (
-			data.materials &&
-			data.materials.videos &&
-			data.materials.videos.length > 0
-		) {
-			const video = data.materials.videos[0];
-			if (video.material_name) {
-				videoName = video.material_name.replace(/\.[^/.]+$/, "");
-				console.log("找到视频文件名:", videoName);
-				fileNameInput.value = videoName;
-			}
-		}
+            function replaceText() {
+                const oldText = $('#old_text').value.trim(),
+                    newText = $('#new_text').value.trim();
+                let content = srtContent.value || srtContent.innerText;
 
-		extractSubtitles(data);
+                if (!content || !oldText) return;
 
-		if (subtitles.length > 0) {
-			updatePreview();
-			exportSrt.disabled = false;
-			exportTxt.disabled = false;
-			console.log("成功提取字幕数量:", subtitles.length);
-		} else {
-			preview.innerHTML = NO_SUBTITLE_DATA_MESSAGE;
-			console.log(NO_SUBTITLE_DATA_MESSAGE);
-		}
-	} catch (error) {
-		console.error("处理文件时出错:", error);
-		preview.innerHTML = `处理文件时出错: ${error.message}`;
-	}
-}
+                const regex = new RegExp(oldText, "gm");
+                content = content.replace(regex, newText);
+                srtContent.value = content;
+            }
 
-// 提取字幕
-function extractSubtitles(data) {
-	console.log("开始提取字幕，数据结构:", Object.keys(data));
+            function generateSRT(data) {
+                try {
+                    let texts = {},
+                        materials = data.materials,
+                        textMaterials = materials.texts;
 
-	// 检查不同的可能的数据结构
-	if (data.materials && data.materials.texts) {
-		console.log("找到materials.texts结构");
-		console.log("texts数组长度:", data.materials.texts.length);
+                    for (let key in textMaterials) {
+                        let content = textMaterials[key].content;
+                        try {
+                            content = JSON.parse(content).text;
+                        } catch (e) { }
+                        texts[textMaterials[key].id] = { content: content };
+                    }
 
-		data.materials.texts.forEach((text) => {
-			if (
-				text.words &&
-				text.words.text &&
-				text.words.start_time &&
-				text.words.end_time
-			) {
-				// 合并所有文本
-				const fullText = text.words.text.join("");
-				// 使用第一个开始时间和最后一个结束时间
-				const startTime = text.words.start_time[0] / 1000; // 转换为秒
-				const endTime =
-					text.words.end_time[text.words.end_time.length - 1] / 1000; // 转换为秒
+                    let segments = [];
+                    if (data.tracks && data.tracks.length) {
+                        data.tracks.forEach(track => {
+                            if (track.segments) {
+                                segments = segments.concat(track.segments);
+                            }
+                        });
+                    }
 
-				subtitles.push({
-					start: startTime,
-					end: endTime,
-					text: fullText,
-				});
-			}
-		});
-	}
+                    segments.sort((a, b) => a.target_timerange.start - b.target_timerange.start);
 
-	console.log("提取到的字幕数量:", subtitles.length);
+                    let result = [],
+                        startIndex = parseInt($('#start_index').value) || 0,
+                        count = 0;
 
-	// 按时间排序
-	subtitles.sort((a, b) => a.start - b.start);
-}
+                    segments.forEach(segment => {
+                        let text = texts[segment.material_id];
+                        if (text) {
+                            text.start = formatTime(segment.target_timerange.start);
+                            text.end = formatTime(
+                                segment.target_timerange.start +
+                                segment.target_timerange.duration - 1
+                            );
+                            text.index = startIndex + count++;
+                            result.push(text);
+                        }
+                    });
 
-// 更新时间预览
-function updatePreview() {
-	const preview = document.getElementById("preview");
-	preview.innerHTML = subtitles
-		.map(
-			(subtitle, index) => `
-        <div class="subtitle-block">
-            <div class="subtitle-index">${index + 1}</div>
-            <div class="subtitle-time">${formatTime(
-							subtitle.start
-						)} --> ${formatTime(subtitle.end)}</div>
-            <div class="subtitle-text">${subtitle.text.trim()}</div>
-        </div>
-    `
-		)
-		.join("");
-}
+                    // 自动填充文件名
+                    if (materials.videos && materials.videos.length) {
+                        $('#filename').value = materials.videos[0].material_name.split('.').slice(0, -1).join('.');
+                    } else if (materials.audios && materials.audios.length) {
+                        $('#filename').value = materials.audios[0].name.split('.').slice(0, -1).join('.');
+                    }
 
-// 格式化时间
-function formatTime(seconds) {
-	const date = new Date(seconds * 1000);
-	const hours = date.getUTCHours().toString().padStart(2, "0");
-	const minutes = date.getUTCMinutes().toString().padStart(2, "0");
-	const secs = date.getUTCSeconds().toString().padStart(2, "0");
-	const ms = date.getUTCMilliseconds().toString().padStart(3, "0");
-	return `${hours}:${minutes}:${secs},${ms}`;
-}
+                    // 生成SRT内容
+                    let srtText = "";
+                    result.forEach(item => {
+                        srtText += `${item.index + 1}\n${item.start} --> ${item.end}\n${item.content}\n\n`;
+                    });
 
-// 应用文本替换
-applyReplace.addEventListener("click", () => {
-	const from = replaceFrom.value;
-	const to = replaceTo.value;
-	if (from && subtitles.length > 0) {
-		subtitles.forEach((sub) => {
-			sub.text = sub.text.replace(new RegExp(from, "g"), to);
-		});
-		updatePreview();
-	}
-});
+                    // srtContent.value = srtText.trim();
+                    srtContent.innerText = srtText.trim();
+                    console.log('生成字幕内容：', srtText); // 调试用日志
+                    return true;
+                } catch (e) {
+                    console.error(e);
+                    alert("解析失败，请确认是有效的剪映项目文件");
+                    return false;
+                }
+            }
 
-// 应用时间偏移
-applyTimeOffset.addEventListener("click", () => {
-	const offset = parseFloat(timeOffset.value);
-	if (!isNaN(offset) && subtitles.length > 0) {
-		subtitles.forEach((sub) => {
-			sub.start += offset;
-			sub.end += offset;
-		});
-		updatePreview();
-	}
-});
+            // 初始化过滤器
+            function initFilters() {
+                let filterHtml = "<label>删除语气词：</label>";
+                [
+                    "呢", "啊", "嗯", "呃", "哎", "唉", "哦", "那么", "一直",
+                    "就是", "所以", "然后", "什么", "那样的", "大概", "这样的",
+                    "可能", "这个", "那个", "这", "那么个", "这么个"
+                ].forEach((word, index) => {
+                    filterHtml += `
+                        <span>
+                            <input type="checkbox" name="filter" id="f${index}" value="${word}">
+                            <label for="f${index}">${word}</label>
+                        </span>`;
+                });
+                $('#filters').innerHTML = filterHtml;
+            }
 
-// 导出SRT
-exportSrt.addEventListener("click", () => {
-	handleExport("srt");
-	resetAll();
-});
+            // 事件绑定
+            fileInput.addEventListener("change", function () {
+                const file = this.files[0];
+                if (!file) return;
 
-// 导出TXT
-exportTxt.addEventListener("click", () => handleExport("txt"));
+                filePath.textContent = file.name;
+                const reader = new FileReader();
 
-// 导出文件的主函数
-function handleExport(format) {
-	let content;
-	let fileExtension;
-	let fileType;
+                reader.onload = function (e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        // 自动解析并生成预览
+                        if (generateSRT(data)) {
+                            makeBtn.disabled = true;
+                        }
+                    } catch (e) {
+                        alert("文件解析失败，请选择有效的JSON文件");
+                        filePath.textContent = "";
+                    }
+                };
 
-	if (format === "srt") {
-		content = subtitles
-			.map(
-				(sub, index) =>
-					`${index + 1}\n${formatTime(sub.start)} --> ${formatTime(sub.end)}\n${
-						sub.text
-					}\n`
-			)
-			.join("\n");
-		fileExtension = ".srt";
-		fileType = "text/plain";
-	} else if (format === "txt") {
-		content = subtitles.map((sub) => sub.text).join("\n");
-		fileExtension = ".txt";
-		fileType = "text/plain";
-	}
+                reader.onerror = function () {
+                    alert("读取文件失败");
+                };
 
-	if (content) {
-		const fileName = fileNameInput.value || videoName;
-		downloadFile(content, `${fileName}${fileExtension}`, fileType);
-		alert(`文件已成功导出为 ${fileName}${fileExtension}！`);
-	}
-}
+                reader.readAsText(file);
+            });
 
-// 下载文件
-function downloadFile(content, filename, type) {
-	const blob = new Blob([content], { type });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
-}
+            makeBtn.addEventListener("click", () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert("请先选择文件");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        generateSRT(data);
+                    } catch (e) {
+                        alert("文件解析失败");
+                    }
+                };
+                reader.readAsText(fileInput.files[0]);
+            });
+
+            saveBtn.addEventListener("click", () => saveFile(true));
+            saveAsBtn.addEventListener("click", () => saveFile(false));
+            $('#filterBtn').addEventListener("click", filterText);
+            $('#replaceBtn').addEventListener("click", replaceText);
+
+            // DOM加载完成后初始化
+            document.addEventListener("DOMContentLoaded", function () {
+                initFilters();
+                // 启用保存按钮
+                if (window.showSaveFilePicker) {
+                    saveAsBtn.style.display = "inline-block";
+                }
+            });
+        })();
+ 
