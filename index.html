@@ -6,6 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>剪映字幕提取工具</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .time-offset-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .time-offset-group input {
+            width: 80px;
+        }
+        #srtContent {
+            white-space: pre-wrap;
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            min-height: 200px;
+        }
+    </style>
 </head>
 
 <body>
@@ -18,47 +36,307 @@
                 <button class="button" onclick="document.getElementById('fileInput').click()">选择文件</button>
                 <div class="file-path" id="filePath"></div>
             </div>
+            
             <div class="export-options">
-                <button class="button" id="resetButton" style="margin-top: 10px;">重置</button>
-                <button class="button" id="exportSrt" disabled>导出SRT</button>
-                <button class="button" id="exportTxt" disabled>导出TXT</button>
+                <h3>时间偏移设置</h3>
+                <div class="time-offset-group">
+                    <input type="number" id="offset_hour" placeholder="小时" value="0">
+                    <input type="number" id="offset_min" placeholder="分钟" value="0">
+                    <input type="number" id="offset_second" placeholder="秒" value="0">
+                    <input type="number" id="offset_frame" placeholder="帧" value="0">
+                    <input type="number" id="offset_frames" placeholder="帧率" value="25">
+                </div>
+                
+                <div class="format-options">
+                    <label>起始编号：</label>
+                    <input type="number" id="start_index" value="0" style="width: 60px; margin-bottom: 15px;">
+                </div>
+
+                <button class="button" id="makeSrtBtn">生成字幕</button>
+                
                 <h3>导出选项</h3>
                 <div class="format-options">
                     <div class="format-option">
-                        <input type="radio" id="formatSrt" name="format" value="srt" checked>
+                        <input type="radio" id="formatSrt" name="filetype" value="text/plain" checked>
                         <label for="formatSrt">SRT格式</label>
                     </div>
                     <div class="format-option">
-                        <input type="radio" id="formatTxt" name="format" value="txt">
+                        <input type="radio" id="formatTxt" name="filetype" value="text/plain">
                         <label for="formatTxt">TXT格式</label>
                     </div>
                 </div>
-                <input type="text" id="fileName" class="file-name-input" placeholder="文件名（不含扩展名）">
-                <div class="additional-options">
-                    <div class="option-group">
-                        <label>文本替换</label>
-                        <input type="text" id="replaceFrom" placeholder="要替换的文本">
-                        <input type="text" id="replaceTo" placeholder="替换为">
-                        <button class="button" id="applyReplace">应用替换</button>
-                    </div>
-                    <div class="option-group">
-                        <label>时间偏移（秒）</label>
-                        <input type="number" id="timeOffset" step="0.1" placeholder="输入偏移秒数">
-                        <button class="button" id="applyTimeOffset">应用偏移</button>
-                    </div>
+                
+                <input type="text" id="filename" class="file-name-input" placeholder="文件名（不含扩展名）">
+                
+                <div id="filters" style="margin-top: 15px;"></div>
+                <button class="button" id="filterBtn" style="margin-top: 10px;">应用过滤</button>
+                
+                <div style="margin-top: 15px;">
+                    <input type="text" id="old_text" placeholder="替换文本">
+                    <input type="text" id="new_text" placeholder="替换为">
+                    <button class="button" id="replaceBtn">应用替换</button>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <button class="button" id="save-btn">保存文件</button>
+                    <button class="button" id="saveAsFilePicker" style="display: none;">另存为</button>
                 </div>
             </div>
         </div>
+        
         <div class="right-panel">
             <h2>字幕预览</h2>
-            <div class="preview-area" id="preview"></div>
-            <div style="margin-top: 20px; text-align: right;">
-                <!-- <button class="button" id="exportSrt" disabled>导出SRT</button>
-                <button class="button" id="exportTxt" disabled>导出TXT</button> -->
-            </div>
+            <div id="srtContent" contenteditable="true"></div>
         </div>
     </div>
-    <script src="script.js"></script>
+
+    <script>
+        // 从原始JS中迁移的功能代码
+        (() => {
+            let $ = document.querySelector.bind(document),
+                $$ = document.querySelectorAll.bind(document),
+                fileInput = $('#fileInput'),
+                filePath = $('#filePath'),
+                srtContent = $('#srtContent'),
+                makeBtn = $('#makeSrtBtn'),
+                saveBtn = $('#save-btn'),
+                saveAsBtn = $('#saveAsFilePicker');
+
+            function formatTime(t) {
+                t += 
+                    1e6 * (
+                        60 * (
+                            60 * (parseInt($('#offset_hour').value) || 0) + 
+                            (parseInt($('#offset_min').value) || 0)
+                        ) + 
+                        (parseInt($('#offset_second').value) || 0) +
+                        (parseInt($('#offset_frame').value) || 0) / 
+                        (parseInt($('#offset_frames').value) || 25)
+                    );
+                
+                let ms = (t = Math.floor(t / 1e3)) % 1e3,
+                    sec = (t = Math.floor(t / 1e3)) % 60,
+                    min = (t = Math.floor(t / 60)) % 60,
+                    hr = d((t = Math.floor(t / 60)), 2);
+                
+                return hr + ":" + d(min, 2) + ":" + d(sec, 2) + "," + d(ms, 3);
+            }
+
+            function d(e, t) {
+                return e.toString().padStart(t, "0");
+            }
+
+            function saveFile(download = true) {
+                let content = srtContent.value || srtContent.innerText;
+                if (!content.trim()) return alert("尚未生成字幕文本"), false;
+                
+                let filename = $('#filename').value || "jianyin_srt",
+                    blob = new Blob([content], { type: $('input[name="filetype"]:checked').value });
+                
+                if (!filename) {
+                    filename = "字幕文件";
+                }
+
+                if (download) {
+                    if (window.navigator.msSaveOrOpenBlob) {
+                        window.navigator.msSaveOrOpenBlob(blob, filename);
+                    } else {
+                        let a = document.createElement("a"),
+                            url = URL.createObjectURL(blob);
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        }, 0);
+                    }
+                } else if (window.showSaveFilePicker) {
+                    (async () => {
+                        try {
+                            const handle = await window.showSaveFilePicker();
+                            const writable = await handle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+                            alert("另存成功！");
+                        } catch (e) {
+                            console.error(e);
+                            alert("保存失败：" + e.message);
+                        }
+                    })();
+                }
+            }
+
+            function filterText() {
+                let content = srtContent.value || srtContent.innerText;
+                if (!content) return;
+                
+                $$('[name="filter"]:checked').forEach(el => {
+                    const regex = new RegExp(el.value, "gm");
+                    content = content.replace(regex, "");
+                });
+                
+                srtContent.value = content;
+            }
+
+            function replaceText() {
+                const oldText = $('#old_text').value.trim(),
+                      newText = $('#new_text').value.trim();
+                let content = srtContent.value || srtContent.innerText;
+                
+                if (!content || !oldText) return;
+                
+                const regex = new RegExp(oldText, "gm");
+                content = content.replace(regex, newText);
+                srtContent.value = content;
+            }
+
+            function generateSRT(data) {
+                try {
+                    let texts = {},
+                        materials = data.materials,
+                        textMaterials = materials.texts;
+                    
+                    for (let key in textMaterials) {
+                        let content = textMaterials[key].content;
+                        try {
+                            content = JSON.parse(content).text;
+                        } catch (e) {}
+                        texts[textMaterials[key].id] = { content: content };
+                    }
+
+                    let segments = [];
+                    if (data.tracks && data.tracks.length) {
+                        data.tracks.forEach(track => {
+                            if (track.segments) {
+                                segments = segments.concat(track.segments);
+                            }
+                        });
+                    }
+
+                    segments.sort((a, b) => a.target_timerange.start - b.target_timerange.start);
+                    
+                    let result = [],
+                        startIndex = parseInt($('#start_index').value) || 0,
+                        count = 0;
+                    
+                    segments.forEach(segment => {
+                        let text = texts[segment.material_id];
+                        if (text) {
+                            text.start = formatTime(segment.target_timerange.start);
+                            text.end = formatTime(
+                                segment.target_timerange.start + 
+                                segment.target_timerange.duration - 1
+                            );
+                            text.index = startIndex + count++;
+                            result.push(text);
+                        }
+                    });
+
+                    // 自动填充文件名
+                    if (materials.videos && materials.videos.length) {
+                        $('#filename').value = materials.videos[0].material_name.split('.').slice(0, -1).join('.');
+                    } else if (materials.audios && materials.audios.length) {
+                        $('#filename').value = materials.audios[0].name.split('.').slice(0, -1).join('.');
+                    }
+
+                    // 生成SRT内容
+                    let srtText = "";
+                    result.forEach(item => {
+                        srtText += `${item.index + 1}\n${item.start} --> ${item.end}\n${item.content}\n\n`;
+                    });
+                    
+                    // srtContent.value = srtText.trim();
+                    srtContent.innerText = srtText.trim();
+                    console.log('生成字幕内容：', srtText); // 调试用日志
+                    return true;
+                } catch (e) {
+                    console.error(e);
+                    alert("解析失败，请确认是有效的剪映项目文件");
+                    return false;
+                }
+            }
+
+            // 初始化过滤器
+            function initFilters() {
+                let filterHtml = "<label>删除语气词：</label>";
+                [
+                    "呢", "啊", "嗯", "呃", "哎", "唉", "哦", "那么", "一直",
+                    "就是", "所以", "然后", "什么", "那样的", "大概", "这样的",
+                    "可能", "这个", "那个", "这", "那么个", "这么个"
+                ].forEach((word, index) => {
+                    filterHtml += `
+                        <span>
+                            <input type="checkbox" name="filter" id="f${index}" value="${word}">
+                            <label for="f${index}">${word}</label>
+                        </span>`;
+                });
+                $('#filters').innerHTML = filterHtml;
+            }
+
+            // 事件绑定
+            fileInput.addEventListener("change", function() {
+                const file = this.files[0];
+                if (!file) return;
+                
+                filePath.textContent = file.name;
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        // 自动解析并生成预览
+                        if (generateSRT(data)) {
+                            makeBtn.disabled = true;
+                        }
+                    } catch (e) {
+                        alert("文件解析失败，请选择有效的JSON文件");
+                        filePath.textContent = "";
+                    }
+                };
+                
+                reader.onerror = function() {
+                    alert("读取文件失败");
+                };
+                
+                reader.readAsText(file);
+            });
+
+            makeBtn.addEventListener("click", () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert("请先选择文件");
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        generateSRT(data);
+                    } catch (e) {
+                        alert("文件解析失败");
+                    }
+                };
+                reader.readAsText(fileInput.files[0]);
+            });
+
+            saveBtn.addEventListener("click", () => saveFile(true));
+            saveAsBtn.addEventListener("click", () => saveFile(false));
+            $('#filterBtn').addEventListener("click", filterText);
+            $('#replaceBtn').addEventListener("click", replaceText);
+
+            // DOM加载完成后初始化
+            document.addEventListener("DOMContentLoaded", function() {
+                initFilters();
+                // 启用保存按钮
+                if (window.showSaveFilePicker) {
+                    saveAsBtn.style.display = "inline-block";
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
