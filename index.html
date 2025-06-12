@@ -40,6 +40,31 @@
             </div>
 
             <div class="export-options">
+                <!-- 新增自动分割设置面板 -->
+                <h3>视频分割设置</h3>
+                <div class="option-group">
+                    <label>
+                        <input type="checkbox" id="autoSplit" checked>
+                        启用自动视频分割
+                    </label>
+                </div>
+                <div class="format-options" data-auto-split>
+                    <div class="format-option">
+                        <input type="radio" id="outputModeMerge" name="outputMode" value="merge" checked>
+                        <label for="outputModeMerge">合并输出</label>
+                    </div>
+                    <div class="format-option">
+                        <input type="radio" id="outputModeSeparate" name="outputMode" value="separate">
+                        <label for="outputModeSeparate">独立输出</label>
+                    </div>
+                </div>
+                <div class="option-group" data-auto-split>
+                    <label>文件命名模板：</label>
+                    <input type="text" id="filenameTemplate" class="file-name-input" placeholder="例如：video_###">
+                </div>
+            </div>
+
+            <div class="export-options">
                 <h3>时间偏移设置</h3>
                 <div class="time-offset-group">
                     <input type="number" id="offset_hour" placeholder="小时" value="0">
@@ -90,6 +115,14 @@
 
         <div class="right-panel">
             <h2>字幕预览</h2>
+            <!-- 新增视频片段信息面板 -->
+            <div style="margin-bottom: 15px;">
+                <label>检测到 <span id="videoCount" style="color: #2196f3;font-weight: bold">0</span> 个视频片段</label>
+                <select id="videoSelector" style="width: 100%; padding: 8px; margin-top: 5px;">
+                    <option value="all">全部视频字幕</option>
+                </select>
+            </div>
+            <button class="button" id="saveAllVideos">全部保存</button>
             <div id="srtContent" contenteditable="true"></div>
         </div>
     </div>
