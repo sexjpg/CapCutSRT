@@ -98,16 +98,59 @@ body {
     margin-top: 0;
     color: #333;
 }
+
+/* 新增视频分割设置样式 */
+#autoSplit {
+    margin-right: 10px;
+}
+
 .format-options {
     display: flex;
     gap: 10px;
     margin-top: 10px;
 }
+
 .format-option {
     display: flex;
     align-items: center;
     gap: 5px;
 }
+
+#timelinePreview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.timeline-item {
+    position: relative;
+    height: 24px;
+    background-color: #e3f2fd;
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.timeline-time {
+    color: #666;
+    font-size: 0.8em;
+}
+
+.timeline-name {
+    color: #333;
+    font-weight: 500;
+}
+
+.video-selector {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
 .format-option input[type="radio"] {
     margin: 0;
 }
