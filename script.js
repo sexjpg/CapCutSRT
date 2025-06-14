@@ -8,14 +8,16 @@
 		saveBtn = $('#save-btn'),
 		saveAsBtn = $('#saveAsFilePicker');
 
+	const defaultsubtitle = '整段字幕'
 	// 全局状态变量
 	let draft = null;        // 当前处理的项目数据副本
 	let Videos = {};         // 视频时间字典
-	let segments = [];       // 时间轴片段数组
-	let result = [];         // 生成的字幕结果
-	let texts = {};          // 文本素材映射
+	// let segments = [];       // 时间轴片段数组
+	// let result = [];         // 生成的字幕结果
+	// let texts = {};          // 文本素材映射
 	let filenameTemplate = '';// 文件名模板
-	let selectedVideo = 'all'; // 当前选中的视频
+	let selectedVideo = defaultsubtitle; // 当前选中的视频
+	const outdata = {};
 
 /**
  * 格式化时间戳为字幕时间格式（HH:MM:SS,mmm）
@@ -170,13 +172,13 @@ function replaceText() {
  * @param {Array} videos - 视频数组，每个视频对象应包含 material_name 和 duration 属性
  * @returns {Object} 视频时间字典，键为 video.material_name，值为包含 start 和 end 的时间对象
  */
-function createVideoTimeDict(videos) {
-    const result = {};
+function generateVideoinfos(videos) {
+    const Videoinfos = {};
     let currentStartTime = 0;
 
     for (const video of videos) {
         // 如果该 material_name 已存在于结果中，则跳过
-        if (result.hasOwnProperty(video.material_name)) {
+        if (Videoinfos.hasOwnProperty(video.material_name)) {
             continue;
         }
         // 确保视频对象有 duration 属性，若没有则默认设为 0
@@ -186,7 +188,7 @@ function createVideoTimeDict(videos) {
         // 设置当前视频的开始和结束时间
 		// const key = video.material_name.split(".").slice(0, -1);
 		const key = video.material_name;
-        result[key] = {
+        Videoinfos[key] = {
             start: currentStartTime,
             end: endTime,
 			duration : duration
@@ -196,10 +198,14 @@ function createVideoTimeDict(videos) {
         currentStartTime = endTime;
     }
 
-    return result;
+    return Videoinfos;
 }
 
-function generateAllCutSRT(Videos) {
+function generateSRT(Videos) {
+	const segments = outdata.segments;
+	const texts = outdata.texts;
+	const AllSub = outdata.AllSub;
+
 	// 遍历 VideosSRT 中的每个视频并生成字幕文件
 	for (const videoName in Videos) {
 		const videoInfo = Videos[videoName];
@@ -230,30 +236,24 @@ function generateAllCutSRT(Videos) {
 			}
 		});
 
-		// // 保存当前视频的字幕文件
-		// if (videoSubtitles.length > 0) {
-		// 	const srtContent = generateSRTContent(videoSubtitles);
-		// 	saveFile(videoName, srtContent); // 使用视频名称作为文件名
-		// }
-
 		// 存储到结果中（可选）
 		videoInfo.srt = videoSubtitles;
 	}
-    return Videos;
+
+	// Videos[defaultsubtitle] = { srt: AllSub };
+	return Videos;
 }
 
-/**
- * SRT字幕文件生成核心函数
- * @param {Object} data - 剪映项目数据对象
- * @returns {boolean} 操作结果状态
- */
-function generateSRT(data) {
+//初始化草稿文件,获取字幕时间轴,字幕文字
+function InitDraft(data) {
+	outdata.data  = data;
 	draft = data;
+
 	try {
 		// 初始化文本素材映射
-		// let texts = {},
-			const materials = data.materials;
-			const textMaterials = materials.texts;
+		let texts = {}
+		const materials = data.materials;
+		const textMaterials = materials.texts;
 
 		for (let key in textMaterials) {
 			let content = textMaterials[key].content;
@@ -264,7 +264,7 @@ function generateSRT(data) {
 		}
 
 		// 收集并排序时间轴片段
-		// let segments = [];
+		let segments = [];
 		if (data.tracks && data.tracks.length) {
 			data.tracks.forEach((track) => {
 				if (track.segments) {
@@ -277,11 +277,16 @@ function generateSRT(data) {
 		segments.sort(
 			(a, b) => a.target_timerange.start - b.target_timerange.start
 		);
+		console.log(segments);
 
-		// 生成字幕条目
-		// let result = [],
-			let startIndex = parseInt($("#start_index").value) || 0;
-			let count = 0;
+		// 生成整段视频字幕条目
+		let AllSub = []
+		let startIndex = parseInt($("#start_index").value) || 0;
+		let count = 0;
+
+
+
+		
 
 
 		segments.forEach((segment) => {
@@ -291,12 +296,27 @@ function generateSRT(data) {
 				text.end = formatTime(
 					segment.target_timerange.start + segment.target_timerange.duration - 1);
 				text.index = startIndex + count++;
-				result.push(text);
+				AllSub.push(text);
 			}
 		});
 
-		Videos=createVideoTimeDict(materials.videos)
-		// Videos=generateAllCutSRT(Videos)
+
+		// 整段视频的字幕内容
+		let srtText = "";
+		AllSub.forEach((item) => {
+			srtText += `${item.index + 1}\n${item.start} --> ${item.end}\n${
+				item.content
+			}\n\n`;
+		});
+		console.log("AllSub", AllSub,srtText);
+
+		outdata.segments=segments
+		outdata.texts=texts
+		outdata.AllSub=AllSub
+
+		Videos=generateVideoinfos(materials.videos)
+		Videos=generateSRT(Videos)
+		
 		console.log('Videos',Videos)
 		
 		// 更新字幕预览
@@ -306,26 +326,6 @@ function generateSRT(data) {
 
 		// // console.log("字幕条目：", result);
 
-		// // 自动填充文件名
-		// if (materials.videos && materials.videos.length) {
-		// 	$("#filename").value = materials.videos[0].material_name
-		// 		.split(".")
-		// 		.slice(0, -1)
-		// 		.join(".");
-		// } else if (materials.audios && materials.audios.length) {
-		// 	$("#filename").value = materials.audios[0].name
-		// 		.split(".")
-		// 		.slice(0, -1)
-		// 		.join(".");
-		// }
-
-		// // 生成最终SRT内容
-		// let srtText = "";
-		// result.forEach((item) => {
-		// 	srtText += `${item.index + 1}\n${item.start} --> ${item.end}\n${
-		// 		item.content
-		// 	}\n\n`;
-		// });
 
 		// srtContent.innerText = srtText.trim();
 		// console.debug("生成字幕内容：", srtText);
@@ -416,11 +416,11 @@ function resetProcess() {
 
     // 重置视频选择器
     const selector = $('#videoSelector');
-    selector.innerHTML = '<option value="all">全部视频字幕</option>';
-    selectedVideo = 'all';
+    selector.innerHTML = `<option value="${selectedVideo}">全部视频字幕</option>`;
+    selectedVideo = defaultsubtitle;
     
     // 重置时间轴预览
-    $('#timelinePreview').innerHTML = '<p style="color: #999; margin: 0;">选择视频后显示时间分布</p>';
+    // $('#timelinePreview').innerHTML = '<p style="color: #999; margin: 0;">选择视频后显示时间分布</p>';
     
     // 重置自动分割设置
     $("#autoSplit").checked = true;
@@ -437,13 +437,16 @@ function resetProcess() {
     $$('[name="filter"]').forEach(el => el.checked = false);
     
     // 重置全局变量
-	draft = null;        // 当前处理的项目数据副本
-	Videos = {};         // 视频时间字典
-	segments = [];       // 时间轴片段数组
-	result = [];         // 生成的字幕结果
-	texts = {};          // 文本素材映射
-	filenameTemplate = '';// 文件名模板
-	selectedVideo = 'all'; // 当前选中的视频
+
+	Videos = {};
+	// 视频相关数据
+	currentVideos = {};
+	selectedVideo = defaultsubtitle;
+	filenameTemplate = '';
+	
+	const countSpan = $('#videoCount')
+	countSpan.textContent = Object.keys(Videos).length;
+
 
     console.log("已重置至初始状态");
 }
@@ -472,7 +475,7 @@ async function saveAllSubtitles(Videos) {
         if (useTemplate && filenameTemplate) {
             filename = generateFilename(filenameTemplate, index + 1);
         } else {
-            filename = videoName.split(".").slice(0, -1).join(".");
+            filename = videoName.split(".").slice(0, -1).join(".") || defaultsubtitle;
         }
         
         // 下载当前文件
@@ -494,72 +497,27 @@ async function saveAllSubtitles(Videos) {
  * 根据当前选择的视频显示对应字幕
  */
 function updateSubtitlePreview() {
-    let srtText = '';
-    
-    if (selectedVideo === 'all') {
-        // 显示所有视频字幕
-        result.forEach((item) => {
-            srtText += `${item.index + 1}\n${item.start} --> ${item.end}\n${item.content}\n\n`;
-        });
-    } else {
-        // 显示指定视频字幕
-        let videoSubtitles = Videos[selectedVideo]?.srt || [];
-        
-        // 如果没有生成该视频的字幕，尝试重新生成
-        if (!videoSubtitles.length && Videos[selectedVideo]) {
-            generateSingleVideoSubtitle(selectedVideo);
-            // 使用新生成的字幕数据
-            videoSubtitles = [...(Videos[selectedVideo].srt || [])];
-        }
-        
-        // 处理空字幕情况
-        if (videoSubtitles.length === 0) {
-            // srtContent.innerText = `未找到视频「${videoName}」的字幕信息`;
-			console.log(`未找到视频「${selectedVideo}」的字幕信息`);
-			srtText = `未找到视频「${selectedVideo}」的字幕信息`;
-        } else {
-            videoSubtitles.forEach((item, index) => {
-                srtText += `${index + 1}\n${item.start} --> ${item.end}\n${item.content}\n\n`;
-            });
-        }
-    }
-    
-    // 使用innerText设置contenteditable元素的内容
-    srtContent.innerText = srtText.trim();
+	let srtText = "";
+	// 显示指定视频字幕
+	let videoSubtitles = Videos[selectedVideo]?.srt || [];
+	// 处理空字幕情况
+	if (videoSubtitles.length === 0) {
+		// srtContent.innerText = `未找到视频「${videoName}」的字幕信息`;
+		console.log(`未找到视频「${selectedVideo}」的字幕信息`);
+		srtText = `未找到视频「${selectedVideo}」的字幕信息`;
+	} else {
+		videoSubtitles.forEach((item, index) => {
+			srtText += `${index + 1}\n${item.start} --> ${item.end}\n${
+				item.content
+			}\n\n`;
+		});
+	}
+	// 使用innerText设置contenteditable元素的内容
+	srtContent.innerText = srtText.trim();
 }
-
-/**
- * 为单个视频生成字幕
- * @param {string} videoName - 视频名称
- */
-function generateSingleVideoSubtitle(videoName) {
-    const videoInfo = Videos[videoName];
-    if (!videoInfo) return;
-
-    const videoStart = videoInfo.start;
-    const videoEnd = videoInfo.end;
-    const videoSubtitles = [];
     
-    let startIndex = parseInt($("#start_index").value) || 0;
 
-    segments.forEach((segment) => {
-        const segmentStartTime = segment.target_timerange.start;
-        let text = texts[segment.material_id];
 
-        if (text && segmentStartTime >= videoStart && segmentStartTime < videoEnd) {
-            const adjustedStart = segment.target_timerange.start - videoStart;
-            const adjustedEnd = adjustedStart + segment.target_timerange.duration - 1;
-
-            text.start = formatTime(adjustedStart);
-            text.end = formatTime(adjustedEnd);
-            text.index = startIndex++;
-
-            videoSubtitles.push(text);
-        }
-    });
-
-    videoInfo.srt = videoSubtitles;
-}
 
 	// 事件绑定
 	fileInput.addEventListener("change", function () {
@@ -573,7 +531,7 @@ function generateSingleVideoSubtitle(videoName) {
 			try {
 				const data = JSON.parse(e.target.result);
 				// 自动解析并生成预览
-				if (generateSRT(data)) {
+				if (InitDraft(data)) {
 					makeBtn.disabled = true;
 				}
 			} catch (e) {
@@ -600,15 +558,13 @@ function generateSingleVideoSubtitle(videoName) {
 		reader.onload = function (e) {
 			try {
 				const data = JSON.parse(e.target.result);
-				generateSRT(data);
+				InitDraft(data);
 			} catch (e) {
 				alert("文件解析失败");
 			}
 		};
 		reader.readAsText(fileInput.files[0]);
 	});
-
-
 
 
 	// 修改保存按钮的点击事件处理
@@ -626,7 +582,6 @@ function generateSingleVideoSubtitle(videoName) {
             saveFile(filename, content);
         }
         
-        resetProcess();
     });
 	saveAsBtn.addEventListener("click", () => saveFile(false));
 	$("#filterBtn").addEventListener("click", filterText);
@@ -669,9 +624,6 @@ function generateSingleVideoSubtitle(videoName) {
 		newSelector.addEventListener('change', (e) => {
 			selectedVideo = e.target.value;
 			updateSubtitlePreview();
-			if (typeof updateTimelinePreview === 'function') {
-				updateTimelinePreview();
-			}
 		});
 	};
 	
