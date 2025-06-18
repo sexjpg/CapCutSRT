@@ -7,24 +7,7 @@
     <title>剪映字幕提取工具</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .time-offset-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
 
-        .time-offset-group input {
-            width: 80px;
-        }
-
-        #srtContent {
-            white-space: pre-wrap;
-            background: #f4f4f4;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-            min-height: 200px;
-        }
     </style>
 </head>
 
@@ -39,78 +22,84 @@
                 <div class="file-path" id="filePath"></div>
             </div>
 
-            <div class="export-options">
-                <!-- 新增自动分割设置面板 -->
-                <h3>视频分割设置</h3>
-                <div class="option-group">
-                    <label>
-                        <input type="checkbox" id="autoSplit" checked>
-                        启用自动视频分割
-                    </label>
-                </div>
-                <div class="format-options" data-auto-split>
-                    <div class="format-option">
-                        <input type="radio" id="outputModeMerge" name="outputMode" value="merge" checked>
-                        <label for="outputModeMerge">合并输出</label>
+            <!-- 合并后的折叠面板 -->
+            <div class="collapsible-container">
+                <h3 class="collapsible-header">高级设置 ▸</h3>
+                <div class="collapsible-content" style="display: none;">
+                    <!-- 视频分割设置 -->
+                    <div class="export-options">
+                        <h3>视频分割设置</h3>
+                        <div class="option-group">
+                            <label>
+                                <input type="checkbox" id="autoSplit" checked>
+                                启用自动视频分割
+                            </label>
+                        </div>
+                        <div class="format-options" data-auto-split>
+                            <div class="format-option">
+                                <input type="radio" id="outputModeMerge" name="outputMode" value="merge" checked>
+                                <label for="outputModeMerge">合并输出</label>
+                            </div>
+                            <div class="format-option">
+                                <input type="radio" id="outputModeSeparate" name="outputMode" value="separate">
+                                <label for="outputModeSeparate">独立输出</label>
+                            </div>
+                        </div>
+                        <div class="option-group" data-auto-split>
+                            <label>文件命名模板：</label>
+                            <input type="text" id="filenameTemplate" class="file-name-input" placeholder="例如：video_###">
+                        </div>
                     </div>
-                    <div class="format-option">
-                        <input type="radio" id="outputModeSeparate" name="outputMode" value="separate">
-                        <label for="outputModeSeparate">独立输出</label>
+
+                    <!-- 时间偏移设置 -->
+                    <div class="export-options">
+                        <h3>时间偏移设置</h3>
+                        <div class="time-offset-group">
+                            <input type="number" id="offset_hour" placeholder="小时" value="0">
+                            <input type="number" id="offset_min" placeholder="分钟" value="0">
+                            <input type="number" id="offset_second" placeholder="秒" value="0">
+                            <input type="number" id="offset_frame" placeholder="帧" value="0">
+                            <input type="number" id="offset_frames" placeholder="帧率" value="25">
+                        </div>
+                        <div class="format-options">
+                            <label>起始编号：</label>
+                            <input type="number" id="start_index" value="0" style="width: 60px; margin-bottom: 15px;">
+                        </div>
                     </div>
-                </div>
-                <div class="option-group" data-auto-split>
-                    <label>文件命名模板：</label>
-                    <input type="text" id="filenameTemplate" class="file-name-input" placeholder="例如：video_###">
+
+                    <!-- 导出选项 -->
+                    <div class="export-options">
+                        <h3>导出选项</h3>
+                        <div class="format-options">
+                            <div class="format-option">
+                                <input type="radio" id="formatSrt" name="filetype" value="application/x-subrip" checked>
+                                <label for="formatSrt">SRT格式</label>
+                            </div>
+                            <div class="format-option">
+                                <input type="radio" id="formatTxt" name="filetype" value="text/plain">
+                                <label for="formatTxt">TXT格式</label>
+                            </div>
+                        </div>
+                        <input type="text" id="filename" class="file-name-input" placeholder="文件名（不含扩展名）">
+                    </div>
+
+                    <!-- 删除语气词 -->
+                    <div class="export-options">
+                        <h3>删除语气词</h3>
+                        <div id="filters"></div>
+                        <button class="button" id="filterBtn" style="margin-top: 10px;">应用过滤</button>
+                    </div>
+                                <div style="margin-top: 15px;">
+                <input type="text" id="old_text" placeholder="替换文本">
+                <input type="text" id="new_text" placeholder="替换为">
+                <button class="button" id="replaceBtn">应用替换</button>
+            </div>
                 </div>
             </div>
 
-            <div class="export-options">
-                <h3>时间偏移设置</h3>
-                <div class="time-offset-group">
-                    <input type="number" id="offset_hour" placeholder="小时" value="0">
-                    <input type="number" id="offset_min" placeholder="分钟" value="0">
-                    <input type="number" id="offset_second" placeholder="秒" value="0">
-                    <input type="number" id="offset_frame" placeholder="帧" value="0">
-                    <input type="number" id="offset_frames" placeholder="帧率" value="25">
-                </div>
+            <!-- <button class="button" id="makeSrtBtn">生成字幕</button> -->
 
-                <div class="format-options">
-                    <label>起始编号：</label>
-                    <input type="number" id="start_index" value="0" style="width: 60px; margin-bottom: 15px;">
-                </div>
 
-                <button class="button" id="makeSrtBtn">生成字幕</button>
-
-                <h3>导出选项</h3>
-                <div class="format-options">
-                    <div class="format-option">
-                        <!-- <input type="radio" id="formatSrt" name="filetype" value="text/plain" checked> -->
-                        <input type="radio" id="formatSrt" name="filetype" value="application/x-subrip" checked>
-                        <label for="formatSrt">SRT格式</label>
-                    </div>
-                    <div class="format-option">
-                        <input type="radio" id="formatTxt" name="filetype" value="text/plain">
-                        <label for="formatTxt">TXT格式</label>
-                    </div>
-                </div>
-
-                <input type="text" id="filename" class="file-name-input" placeholder="文件名（不含扩展名）">
-
-                <div id="filters" style="margin-top: 15px;"></div>
-                <button class="button" id="filterBtn" style="margin-top: 10px;">应用过滤</button>
-
-                <div style="margin-top: 15px;">
-                    <input type="text" id="old_text" placeholder="替换文本">
-                    <input type="text" id="new_text" placeholder="替换为">
-                    <button class="button" id="replaceBtn">应用替换</button>
-                </div>
-
-                <div style="margin-top: 15px;">
-                    <button class="button" id="save-btn">保存文件</button>
-                    <button class="button" id="resetBtn">重置</button>
-                    <button class="button" id="saveAsFilePicker" style="display: none;">另存为</button>
-                </div>
-            </div>
         </div>
 
         <div class="right-panel">
@@ -122,7 +111,13 @@
                     <option value="all">全部视频字幕</option>
                 </select>
             </div>
-            <button class="button" id="saveAllVideos">全部保存</button>
+                <div style="margin-top: 15px;">
+                <button class="button" id="saveAllVideos">保存全部字幕</button>
+                <button class="button" id="save-btn">保存选定字幕</button>
+                <button class="button" id="saveAsFilePicker" style="display: none;">另存为</button>
+                    <button class="button" id="resetBtn">重置</button>
+            </div>
+            
             <div id="srtContent" contenteditable="true"></div>
         </div>
     </div>
