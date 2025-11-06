@@ -167,18 +167,30 @@ function replaceText() {
     srtContent.value = content;
 }
 
-/**
- * 创建视频时间字典
- * @param {Array} videos - 视频数组，每个视频对象应包含 material_name 和 duration 属性
- * @returns {Object} 视频时间字典，键为 video.material_name，值为包含 start 和 end 的时间对象
- */
-function generateVideoinfos(videos) {
+
+function generateVideoinfos(materials) {
+    const cuts = []
+    if (!materials) return;
+    if (materials.videos) {
+        //把materials.videos的内容附加到cuts,materials.videos是一个[]
+        cuts.push(...materials.videos);
+    }
+
+    if (materials.audios) {
+        //把materials.audios的内容附加到cuts,materials.audios是一个{}
+        cuts.push(...materials.audios);
+    }
+
     const Videoinfos = {};
     let currentStartTime = 0;
+    console.log('cuts',cuts);
 
-    for (const video of videos) {
-        // 如果该 material_name 已存在于结果中，则跳过
-        if (Videoinfos.hasOwnProperty(video.material_name)) {
+    for (const video of cuts) {
+        //获取片段名称
+        const cutname = video.material_name || video.name;
+        // console.log('cutname',cutname);
+        
+        if (Videoinfos.hasOwnProperty(cutname)) {
             continue;
         }
         // 确保视频对象有 duration 属性，若没有则默认设为 0
@@ -187,7 +199,7 @@ function generateVideoinfos(videos) {
 
         // 设置当前视频的开始和结束时间
         // const key = video.material_name.split(".").slice(0, -1);
-        const key = video.material_name;
+        const key = cutname;
         Videoinfos[key] = {
             start: currentStartTime,
             end: endTime,
@@ -279,7 +291,7 @@ function InitDraft(data) {
         segments.sort(
             (a, b) => a.target_timerange.start - b.target_timerange.start
         );
-        console.log(segments);
+        // console.log(segments);
 
         // 生成整段视频字幕条目
         let AllSub = []
@@ -304,13 +316,13 @@ function InitDraft(data) {
                 item.content
             }\n\n`;
         });
-        console.log("AllSub", AllSub, srtText);
+        // console.log("AllSub", AllSub, srtText);
 
         outdata.segments = segments
         outdata.texts = texts
         outdata.AllSub = AllSub
 
-        Videos = generateVideoinfos(materials.videos)
+        Videos = generateVideoinfos(materials)
         Videos = generateSRT(Videos)
 
         Videos[defaultsubtitle]={ 
